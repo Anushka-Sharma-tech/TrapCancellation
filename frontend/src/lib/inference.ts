@@ -1,4 +1,4 @@
-type AudioFrame =
+export type AudioFrame =
   | Float32Array
   | {
       samples?: Float32Array;
@@ -22,25 +22,31 @@ const emptySignals: VoiceSignals = {
 };
 
 function getSamples(frame: AudioFrame): Float32Array {
-  if (frame instanceof Float32Array) return frame;
-  return frame.samples ?? frame.data ?? frame.audio ?? new Float32Array();
-}
+  if (frame instanceof Float32Array) {
+    return frame;
+  }
 
-function getSampleRate(frame: AudioFrame): number {
-  if (frame instanceof Float32Array) return 16000;
-  return frame.sampleRate ?? 16000;
+  return (
+    frame.samples ??
+    frame.data ??
+    frame.audio ??
+    new Float32Array()
+  );
 }
 
 function isSilent(samples: Float32Array): boolean {
-  if (samples.length === 0) return true;
+  if (samples.length === 0) {
+    return true;
+  }
 
   let sumSquares = 0;
   let peak = 0;
 
   for (const sample of samples) {
-    const abs = Math.abs(sample);
+    const value = Math.abs(sample);
+
     sumSquares += sample * sample;
-    peak = Math.max(peak, abs);
+    peak = Math.max(peak, value);
   }
 
   const rms = Math.sqrt(sumSquares / samples.length);
@@ -48,61 +54,77 @@ function isSilent(samples: Float32Array): boolean {
   return rms < 0.012 || peak < 0.035;
 }
 
-function encodeWav(samples: Float32Array, sampleRate: number): Blob {
-  const buffer = new ArrayBuffer(44 + samples.length * 2);
-  const view = new DataView(buffer);
+function getBackendUrl(): string {
+  const url = process.env.NEXT_PUBLIC_VOICE_API_URL?.trim();
 
-  function writeString(offset: number, value: string) {
-    for (let i = 0; i < value.length; i += 1) {
-      view.setUint8(offset + i, value.charCodeAt(i));
-    }
+  if (!url) {
+    throw new Error(
+      "NEXT_PUBLIC_VOICE_API_URL is not configured."
+    );
   }
 
-  writeString(0, "RIFF");
-  view.setUint32(4, 36 + samples.length * 2, true);
-  writeString(8, "WAVE");
-  writeString(12, "fmt ");
-  view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true);
-  view.setUint16(22, 1, true);
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * 2, true);
-  view.setUint16(32, 2, true);
-  view.setUint16(34, 16, true);
-  writeString(36, "data");
-  view.setUint32(40, samples.length * 2, true);
-
-  let offset = 44;
-
-  for (const sample of samples) {
-    const value = Math.max(-1, Math.min(1, sample));
-    view.setInt16(offset, value < 0 ? value * 0x8000 : value * 0x7fff, true);
-    offset += 2;
-  }
-
-  return new Blob([view], { type: "audio/wav" });
+  return url.replace(/\/+$/, "");
 }
 
-export async function runVoiceInference(frame: AudioFrame): Promise<VoiceSignals> {
+export async function runVoiceInference(
+  frame: AudioFrame
+): Promise<VoiceSignals> {
   const samples = getSamples(frame);
 
   if (isSilent(samples)) {
     return emptySignals;
   }
 
-  const wav = encodeWav(samples, getSampleRate(frame));
+  const backendUrl = getBackendUrl();
 
-  const response = await fetch("/api/voice/analyze", {
-    method: "POST",
-    headers: {
-      "Content-Type": "audio/wav",
-    },
-    body: wav,
-  });
+  /*
+   * /stream/analyze expects:
+   * - raw Float32 PCM bytes
+   * - 16 kHz
+   *
+   * slice() creates an exact-sized copy so we don't accidentally send
+   * unrelated bytes from the underlying ArrayBuffer.
+   */
+  const pcmBuffer = samples.slice().buffer;
+
+  const response = await fetch(
+    `${backendUrl}/stream/analyze`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/octet-stream",
+      },
+      body: pcmBuffer,
+      cache: "no-store",
+    }
+  );
 
   if (!response.ok) {
-    throw new Error("Voice inference failed");
+    const errorText = await response.text().catch(() => "");
+
+    throw new Error(
+      `Voice inference failed (${response.status})${
+        errorText ? `: ${errorText}` : ""
+      }`
+    );
   }
 
-  return response.json();
+  const result = await response.json();
+
+  return {
+    /*
+     * The backend streaming response uses 0-100 scores.
+     * The existing frontend signal model uses 0-1 values.
+     */
+    acousticArtifact:
+      Number(result.acousticScore ?? 0) / 100,
+
+    prosodyAnomaly:
+      Number(result.prosodyScore ?? 0) / 100,
+
+    speakerDrift:
+      Number(result.speakerConsistencyScore ?? 0) / 100,
+
+    behavioralRisk: 0,
+  };
 }
