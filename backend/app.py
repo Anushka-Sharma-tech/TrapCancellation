@@ -1,11 +1,37 @@
-import gradio as gr
-from app.main import app as fastapi_app
+import spaces
+from gradio import Server
+from fastapi.middleware.cors import CORSMiddleware
 
-# Create a minimal UI so Hugging Face Spaces knows the app is running
-with gr.Blocks() as demo:
-    gr.Markdown("<center><h1>🛡️ TrapCancellation Core Engine</h1></center>")
-    gr.Markdown("<center>Real-Time Voice Impersonation API is <b>LIVE</b>.</center>")
+from app import main as backend
 
-# This mounts your existing FastAPI app (with /health, /ws/stream, etc.) 
-# directly onto the Hugging Face server.
-app = gr.mount_gradio_app(fastapi_app, demo, path="/")
+
+@spaces.GPU(duration=120)
+def model_fake_probability_gpu(audio, sr=16000):
+    return backend._model_fake_probability(audio, sr)
+
+
+# Tell the backend to use the ZeroGPU version
+backend.model_fake_probability_gpu = model_fake_probability_gpu
+
+
+# Gradio server
+app = Server(debug=True)
+
+# Add all FastAPI backend routes
+app.include_router(backend.app.router)
+
+# CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+if __name__ == "__main__":
+    app.launch(
+        server_name="0.0.0.0",
+        server_port=7860,
+    )

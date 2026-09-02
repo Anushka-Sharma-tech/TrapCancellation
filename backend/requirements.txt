@@ -1,16 +1,30 @@
-fastapi
-uvicorn[standard]==0.34.0
-python-multipart==0.0.20
-pydantic==2.10.6
-numpy==2.2.2
-scipy==1.15.1
-librosa==0.10.2.post1
-soundfile==0.13.1
-torch==2.8.0
-torchaudio==2.8.0
-transformers==4.48.3
-datasets==3.2.0
-evaluate==0.4.3
-accelerate==1.3.0
-scikit-learn==1.6.1
-httpx==0.28.1
+---
+title: TrapCancellation Voice Security Engine
+emoji: 🛡️
+colorFrom: green
+colorTo: blue
+sdk: gradio
+sdk_version: 6.26.0
+python_version: "3.12"
+app_file: app.py
+---
+
+# 🛡️ TrapCancellation Voice Security Engine
+
+Real-Time Voice Impersonation & Contextual Fraud Detection API.
+
+## Endpoints
+
+- `GET /health`
+- `POST /voice/analyze`
+- `POST /api/v1/analyze-call`
+- `WS /ws/stream`
+
+## ZeroGPU
+
+The acoustic deepfake model runs using Hugging Face ZeroGPU.
+
+The GPU-dependent function is declared at module level using:
+
+```python
+@spaces.GPU(duration=120)
