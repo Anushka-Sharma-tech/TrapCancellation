@@ -10,3 +10,35 @@ dist/
 .env
 .env.*
 !.env.example
+
+# Virtual Environments
+venv/
+env/
+.env
+.env.local
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# Audio Data & Model Weights (Crucial: Keep Git light)
+backend/data/train/
+backend/data/val/
+backend/data/test_indian/
+backend/models/*
+!backend/models/.gitkeep
+*.wav
+*.mp3
+*.flac
+*.onnx
+*.pt
+*.bin
+*.safetensors
+
+# Node / Next.js
+frontend/node_modules/
+frontend/.next/
+frontend/out/

@@ -1,38 +1,21 @@
-import torch
-from pathlib import Path
+FROM python:3.11-slim
 
-class PlaceholderAASIST(torch.nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.net = torch.nn.Sequential(
-            torch.nn.Conv1d(1, 16, 9, stride=2, padding=4),
-            torch.nn.ReLU(),
-            torch.nn.AdaptiveAvgPool1d(1),
-            torch.nn.Flatten(),
-            torch.nn.Linear(16, 2),
-        )
+WORKDIR /app
 
-    def forward(self, input):
-        return self.net(input.unsqueeze(1))
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libsndfile1 \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
 
-def export():
-    output = Path("../frontend/public/models/aasist.onnx")
-    output.parent.mkdir(parents=True, exist_ok=True)
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip
+RUN pip install --no-cache-dir -r requirements.txt
 
-    model = PlaceholderAASIST().eval()
-    dummy = torch.randn(1, 16000)
+COPY app ./app
+COPY models ./models
 
-    torch.onnx.export(
-        model,
-        dummy,
-        output,
-        input_names=["input"],
-        output_names=["logits"],
-        dynamic_axes={"input": {0: "batch", 1: "samples"}, "logits": {0: "batch"}},
-        opset_version=17,
-    )
+ENV PORT=7860
+EXPOSE 7860
 
-    print(f"Exported {output}")
-
-if __name__ == "__main__":
-    export()
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860"]
