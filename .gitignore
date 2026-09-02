@@ -1,0 +1,12 @@
+**/venv/
+**/.venv/
+__pycache__/
+*.py[cod]
+
+node_modules/
+.next/
+dist/
+
+.env
+.env.*
+!.env.example

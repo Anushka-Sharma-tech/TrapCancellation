@@ -1,0 +1,13 @@
+fastapi==0.115.8
+uvicorn==0.34.0
+websockets==14.2
+pydantic==2.10.6
+numpy==2.2.2
+torch==2.6.0
+torchaudio==2.6.0
+soundfile==0.13.1
+scipy==1.15.1
+httpx==0.28.1
+python-multipart
+librosa
+transformers
