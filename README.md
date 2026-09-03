@@ -59,3 +59,9 @@ npm run dev
 ## 📄 License  
   
 MIT License
+
+## 📘 Complete Technical Mastery Guide
+
+Want to understand how TrapCancellation actually works, from the basics of programming and audio to FastAPI, Wav2Vec2, DSP, risk scoring, deployment, and the project's real limitations?
+
+👉 **[Read / Download the TrapCancellation Technical Mastery Guide](./docs/TrapCancellation_Visual_Textbook_Edition.docx)**
